@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useRef } from 'react';
 import { StackScreenComponent } from '../utils/types';
-import { ActivityIndicator, Dimensions, ScrollView, View, Text, FlatList, Linking } from 'react-native';
+import { ActivityIndicator, Dimensions, ScrollView, View, Text, FlatList, Linking, Animated } from 'react-native';
 import { getMovieById } from '../api/Axios';
 import { Button, Divider, Image } from 'react-native-elements';
 import { MovieContext, movieContext } from '../contexts/MovieContext';
@@ -18,6 +18,13 @@ const MovieDetailScreen: StackScreenComponent<{}, { id: number }> = ({ navigatio
   const { state: { favorites }, dispatcher: favoriteContextDispatcher } = useContext(favoriteContext) as FavoriteContext;
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(new Animated.Value(0));
+
+  const animatedHeaderTop = scrollYRef.current.interpolate({
+    inputRange: [580, 630],
+    outputRange: [-70, 0],
+    extrapolate: 'clamp',
+  });
 
   useEffect(() => {
     dispatcher({ type: 'SET_IS_LOADING', isLoading: true });
@@ -40,9 +47,9 @@ const MovieDetailScreen: StackScreenComponent<{}, { id: number }> = ({ navigatio
     if (selected) {
       const filteredPosters = selected.images.posters.filter(p => p.iso_639_1 === 'en' && p.height > 1280);
       return configuration
-        ? `${configuration.images.secure_base_url}${configuration.images.backdrop_sizes.find(s => s === 'original')}${filteredPosters.length
+        ? `${ configuration.images.secure_base_url }${ configuration.images.backdrop_sizes.find(s => s === 'original') }${ filteredPosters.length
           ? filteredPosters[filteredPosters.length - 1].file_path
-          : selected.poster_path}`
+          : selected.poster_path }`
         : '';
     }
 
@@ -53,20 +60,20 @@ const MovieDetailScreen: StackScreenComponent<{}, { id: number }> = ({ navigatio
 
   const getProfileUri = (c: Cast) => {
     return configuration
-      ? `${configuration.images.secure_base_url}${configuration.images.profile_sizes.find(s => s === 'original')}${c.profile_path}`
+      ? `${ configuration.images.secure_base_url }${ configuration.images.profile_sizes.find(s => s === 'original') }${ c.profile_path }`
       : '';
   };
 
   const getBackdropUri = (item: MovieImage) => {
     return configuration
-      ? `${configuration.images.secure_base_url}${configuration.images.backdrop_sizes.find(s => s === 'original')}${item.file_path}`
+      ? `${ configuration.images.secure_base_url }${ configuration.images.backdrop_sizes.find(s => s === 'original') }${ item.file_path }`
       : '';
   };
 
   const onWatchTrailerPressedHandler = (videos: Videos) => {
     const selectedVideo = videos.results.find(v => v.type === MovieVideoType.Trailer && v.site === MovieVideoSite.Youtube);
     const key = selectedVideo ? selectedVideo.key : '';
-    Linking.openURL(`https://www.youtube.com/watch?v=${key}`);
+    Linking.openURL(`https://www.youtube.com/watch?v=${ key }`);
   };
 
   const onMovieSelected = (movieId: number) => {
@@ -106,105 +113,132 @@ const MovieDetailScreen: StackScreenComponent<{}, { id: number }> = ({ navigatio
 
   return (
     <>
-      <NavigationEvents onWillFocus={onWillFocusHandler}/>
-      <TextLoadingIndicator isVisible={isLoading} text={'Loading movie...'}/>
-      <View style={{ flex: 1, backgroundColor: '#2e286a' }}>
-        {selected && (
-          <ScrollView ref={scrollViewRef}>
-            <Image source={{ uri: getImageUri() }}
-                   style={{ width: fullWidth, height: 562 }}
-                   PlaceholderContent={<ActivityIndicator/>}
-                   resizeMethod={'scale'}
-                   resizeMode={'stretch'}/>
-            <View style={{ flex: 1 }}>
-              <Text style={{
+      <NavigationEvents onWillFocus={ onWillFocusHandler }/>
+      <TextLoadingIndicator isVisible={ isLoading } text={ 'Loading movie...' }/>
+      <View style={ { flex: 1, backgroundColor: '#2e286a' } }>
+
+        { selected && (
+          <>
+            <Animated.View style={ {
+              height: 70,
+              borderBottomColor: '#ddd',
+              borderBottomWidth: 1,
+              backgroundColor: '#3d3780',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 2,
+              transform: [
+                { translateY: animatedHeaderTop }
+              ]
+            } }>
+              <View style={ { flex: 1, paddingLeft: 10, paddingTop: 40 } }>
+                <Text style={ {
+                  fontSize: 20,
+                  color: 'white'
+                } }>{ selected ? selected.original_title : '' }</Text>
+              </View>
+            </Animated.View>
+            <Animated.ScrollView scrollEventThrottle={ 16 } ref={ scrollViewRef } onScroll={ Animated.event([
+              { nativeEvent: { contentOffset: { y: scrollYRef.current } } }
+            ], { useNativeDriver: true }) }>
+              <Image source={ { uri: getImageUri() } }
+                     style={ { width: fullWidth, height: 562 } }
+                     PlaceholderContent={ <ActivityIndicator/> }
+                     resizeMethod={ 'scale' }
+                     resizeMode={ 'stretch' }/>
+              <View style={ { flex: 1 } }>
+                <Text style={ {
+                  paddingHorizontal: 10,
+                  paddingTop: 10,
+                  color: 'white',
+                  fontSize: 20
+                } }>{ selected.original_title }</Text>
+                <View style={ { flex: 1, flexDirection: 'row', paddingHorizontal: 10, paddingTop: 5 } }>
+                  { selected.genres.map((g, index) => (
+                    <Text style={ { color: 'white', fontSize: 12 } }
+                          key={ g.id }>{ g.name }{ index === selected.genres.length - 1 ? '' : ', ' }</Text>
+                  )) }
+                </View>
+              </View>
+              <Text style={ {
+                color: 'white',
+                fontSize: 12,
                 paddingHorizontal: 10,
                 paddingTop: 10,
-                color: 'white',
-                fontSize: 20
-              }}>{selected.original_title}</Text>
-              <View style={{ flex: 1, flexDirection: 'row', paddingHorizontal: 10, paddingTop: 5 }}>
-                {selected.genres.map((g, index) => (
-                  <Text style={{ color: 'white', fontSize: 12 }}
-                        key={g.id}>{g.name}{index === selected.genres.length - 1 ? '' : ', '}</Text>
-                ))}
+              } }>
+                { selected.overview }
+              </Text>
+              <View style={ { flex: 1, paddingHorizontal: 10, paddingTop: 10, flexDirection: 'row' } }>
+                <Button raised
+                        title={ 'Watch Trailer' }
+                        icon={ { name: 'ios-glasses', type: 'ionicon', color: 'white', size: 24 } }
+                        containerStyle={ { marginRight: 5, alignItems: 'center' } }
+                        buttonStyle={ { backgroundColor: '#00d97e', borderRadius: 10 } }
+                        titleStyle={ { fontSize: 12 } }
+                        onPress={ () => onWatchTrailerPressedHandler(selected.videos) }/>
+                { isSelectedFavorited() ? (
+                  <Button raised
+                          icon={ { name: 'ios-heart-empty', type: 'ionicon', color: 'white', size: 24 } }
+                          containerStyle={ { marginRight: 5, alignItems: 'center' } }
+                          buttonStyle={ { backgroundColor: '#a6aacc', borderRadius: 10 } }
+                          titleStyle={ { fontSize: 12 } }
+                          title={ 'Remove from Favorite' }
+                          onPress={ () => onRemoveFavoritePressedHandler(selected) }/>
+                ) : (
+                  <Button raised
+                          icon={ { name: 'ios-heart', type: 'ionicon', color: 'white', size: 24 } }
+                          containerStyle={ { marginRight: 5, alignItems: 'center' } }
+                          buttonStyle={ { backgroundColor: '#ff386a', borderRadius: 10 } }
+                          titleStyle={ { fontSize: 12 } }
+                          title={ 'Add to Favorite' }
+                          onPress={ () => onAddToFavoritePressedHandler(selected) }/>
+                ) }
               </View>
-            </View>
-            <Text style={{
-              color: 'white',
-              fontSize: 12,
-              paddingHorizontal: 10,
-              paddingTop: 10,
-            }}>
-              {selected.overview}
-            </Text>
-            <View style={{ flex: 1, paddingHorizontal: 10, paddingTop: 10, flexDirection: 'row' }}>
-              <Button raised
-                      title={'Watch Trailer'}
-                      icon={{ name: 'ios-glasses', type: 'ionicon', color: 'white', size: 24 }}
-                      containerStyle={{ marginRight: 5, alignItems: 'center' }}
-                      buttonStyle={{ backgroundColor: '#00d97e', borderRadius: 10 }}
-                      titleStyle={{ fontSize: 12 }}
-                      onPress={() => onWatchTrailerPressedHandler(selected.videos)}/>
-              {isSelectedFavorited() ? (
-                <Button raised
-                        icon={{ name: 'ios-heart-empty', type: 'ionicon', color: 'white', size: 24 }}
-                        containerStyle={{ marginRight: 5, alignItems: 'center' }}
-                        buttonStyle={{ backgroundColor: '#a6aacc', borderRadius: 10 }}
-                        titleStyle={{ fontSize: 12 }}
-                        title={'Remove from Favorite'}
-                        onPress={() => onRemoveFavoritePressedHandler(selected)}/>
-              ) : (
-                <Button raised
-                        icon={{ name: 'ios-heart', type: 'ionicon', color: 'white', size: 24 }}
-                        containerStyle={{ marginRight: 5, alignItems: 'center' }}
-                        buttonStyle={{ backgroundColor: '#ff386a', borderRadius: 10 }}
-                        titleStyle={{ fontSize: 12 }}
-                        title={'Add to Favorite'}
-                        onPress={() => onAddToFavoritePressedHandler(selected)}/>
-              )}
-            </View>
-            <View style={{ padding: 20 }}>
-              <Divider/>
-            </View>
-            <View style={{ flex: 1 }}>
-              <ScrollView horizontal>
-                {selected.credits.cast.map(c => (
-                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: 100 }} key={c.id}>
-                    <Image source={{ uri: getProfileUri(c) }}
-                           style={{ width: 50, height: 75 }}
-                           resizeMode={'cover'}
-                           resizeMethod={'auto'}/>
-                    <Text style={{ color: 'white', fontSize: 10, textAlign: 'center' }}>{c.name}</Text>
-                    <Text style={{ color: 'white', fontSize: 8 }}>as</Text>
-                    <Text style={{ color: 'white', fontSize: 10, textAlign: 'center' }}>{c.character}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-            <View style={{ padding: 20 }}>
-              <Divider/>
-            </View>
-            <View>
-              <FlatList data={selected.images.backdrops}
-                        numColumns={2}
-                        keyExtractor={(_, index) => '' + index}
-                        renderItem={info => (
-                          <Image source={{ uri: getBackdropUri(info.item) }}
-                                 style={{ width: fullWidth / 2, height: fullWidth / 2 }}
-                                 PlaceholderContent={<ActivityIndicator/>}
-                                 resizeMethod={'resize'}
-                                 resizeMode={'cover'}/>
-                        )}/>
-            </View>
-            <View style={{ padding: 20 }}>
-              <Divider/>
-            </View>
-            <MoviesList movies={selected.recommendations.results}
-                        title={'Recommendations'}
-                        onMovieSelected={onMovieSelected}/>
-          </ScrollView>
-        )}
+              <View style={ { padding: 20 } }>
+                <Divider/>
+              </View>
+              <View style={ { flex: 1 } }>
+                <ScrollView horizontal>
+                  { selected.credits.cast.map(c => (
+                    <View style={ { flex: 1, justifyContent: 'center', alignItems: 'center', width: 100 } }
+                          key={ c.id }>
+                      <Image source={ { uri: getProfileUri(c) } }
+                             style={ { width: 50, height: 75 } }
+                             resizeMode={ 'cover' }
+                             resizeMethod={ 'auto' }/>
+                      <Text style={ { color: 'white', fontSize: 10, textAlign: 'center' } }>{ c.name }</Text>
+                      <Text style={ { color: 'white', fontSize: 8 } }>as</Text>
+                      <Text style={ { color: 'white', fontSize: 10, textAlign: 'center' } }>{ c.character }</Text>
+                    </View>
+                  )) }
+                </ScrollView>
+              </View>
+              <View style={ { padding: 20 } }>
+                <Divider/>
+              </View>
+              <View>
+                <FlatList data={ selected.images.backdrops }
+                          numColumns={ 2 }
+                          keyExtractor={ (_, index) => '' + index }
+                          renderItem={ info => (
+                            <Image source={ { uri: getBackdropUri(info.item) } }
+                                   style={ { width: fullWidth / 2, height: fullWidth / 2 } }
+                                   PlaceholderContent={ <ActivityIndicator/> }
+                                   resizeMethod={ 'resize' }
+                                   resizeMode={ 'cover' }/>
+                          ) }/>
+              </View>
+              <View style={ { padding: 20 } }>
+                <Divider/>
+              </View>
+              <MoviesList movies={ selected.recommendations.results }
+                          title={ 'Recommendations' }
+                          onMovieSelected={ onMovieSelected }/>
+            </Animated.ScrollView>
+          </>
+        ) }
       </View>
     </>
   );
